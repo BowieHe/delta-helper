@@ -1,0 +1,39 @@
+# 三角洲游戏助手依赖配置
+
+# 核心GUI
+PySide6>=6.6.0
+
+# 屏幕捕获 (Windows专用)
+dxcam>=0.2; platform_system=="Windows"
+
+# 图像处理
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# OCR
+paddleocr>=2.7.0
+paddlepaddle>=2.5.0
+paddlepaddle-gpu>=2.5.0; platform_system=="Windows"
+
+# 路径规划
+pathfinding>=1.0.0
+
+# 键盘监听
+keyboard>=0.13.5
+
+# 窗口管理
+pygetwindow>=0.0.9
+pywin32>=306; platform_system=="Windows"
+
+# 工具
+pydantic>=2.0.0
+loguru>=0.7.0
+
+# 测试
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-qt>=4.2.0
+
+# 打包
+pyinstaller>=6.0.0
