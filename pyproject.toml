@@ -1,0 +1,232 @@
+[project]
+name = "delta-helper"
+version = "1.0.0"
+description = "三角洲游戏助手 - 实时地图物资识别和最优搜索路线推荐"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Delta Helper Team"}
+]
+keywords = ["game", "assistant", "ocr", "route-planning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Games/Entertainment",
+]
+
+dependencies = [
+    # 核心GUI
+    "PySide6>=6.6.0",
+    
+    # 屏幕捕获 (Windows专用)
+    "dxcam>=0.0.5; sys_platform=='win32'",
+    
+    # 图像处理
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "Pillow>=10.0.0",
+    
+    # OCR
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0",
+    "paddlepaddle-gpu>=2.5.0; platform_system=='Windows'",
+    
+    # 路径规划
+    "pathfinding>=1.0.0",
+    
+    # 键盘监听
+    "keyboard>=0.13.5",
+    
+    # 窗口管理
+    "pygetwindow>=0.0.9",
+    "pywin32>=306; sys_platform=='win32'",
+    
+    # 进程检测
+    "psutil>=5.9.0",
+    
+    # 工具
+    "pydantic>=2.0.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-qt>=4.2.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+build = [
+    "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+delta-helper = "src.main:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/delta-helper"
+Documentation = "https://github.com/yourusername/delta-helper#readme"
+Repository = "https://github.com/yourusername/delta-helper.git"
+Issues = "https://github.com/yourusername/delta-helper/issues"
+
+# ============================================
+# Build System Configuration
+# ============================================
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+# ============================================
+# Tool Configurations
+# ============================================
+
+[tool.uv]
+# uv 配置
+python-downloads = "automatic"
+managed = true
+
+[tool.uv.pip]
+# pip 兼容性配置
+generate-hashes = false
+
+# ============================================
+# Black - 代码格式化
+# ============================================
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | data
+  | logs
+)/
+'''
+
+# ============================================
+# Ruff - 代码检查
+# ============================================
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # Line too long (handled by black)
+    "N803",  # Argument name should be lowercase
+    "N806",  # Variable in function should be lowercase
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# ============================================
+# Pytest - 测试配置
+# ============================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "-ra",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# ============================================
+# MyPy - 类型检查
+# ============================================
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "dxcam.*",
+    "paddleocr.*",
+    "paddle.*",
+    "keyboard.*",
+    "pygetwindow.*",
+    "win32.*",
+]
+ignore_missing_imports = true
+
+# ============================================
+# Coverage - 测试覆盖率
+# ============================================
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "src/main.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

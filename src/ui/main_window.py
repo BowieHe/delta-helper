@@ -25,6 +25,15 @@ from PySide6.QtGui import QIcon, QAction, QFont, QPalette, QColor
 from datetime import datetime
 from typing import Optional
 from loguru import logger
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from ui.stats_dialog import StatsDialog
+from analytics.database import DatabaseManager
+from analytics.calculator import EfficiencyCalculator
+
+
 
 
 class MainWindow(QMainWindow):
@@ -47,6 +56,10 @@ class MainWindow(QMainWindow):
     def __init__(self, config=None, parent=None):
         super().__init__(parent)
         self.config = config
+        # Statistics-related components
+        self.stats_dialog = None
+        self.db = DatabaseManager()
+        self.calculator = EfficiencyCalculator()
 
         self.setWindowTitle("三角洲助手 v1.0")
         self.setGeometry(100, 100, 500, 700)
@@ -69,6 +82,8 @@ class MainWindow(QMainWindow):
         logger.info("MainWindow initialized")
 
     def _setup_ui(self):
+        """设置UI"""
+        
         """设置UI"""
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -93,48 +108,36 @@ class MainWindow(QMainWindow):
         )
         status_layout.addWidget(self.game_status_label)
 
-        self.map_status_label = QLabel("地图状态: 关闭")
-        self.map_status_label.setStyleSheet("font-size: 14px;")
+        self.map_status_label = QLabel("地图状态: 未打开")
+        self.map_status_label.setStyleSheet(
+            "color: #e74c3c; font-size: 14px; font-weight: bold;"
+        )
         status_layout.addWidget(self.map_status_label)
 
         layout.addWidget(status_group)
 
-        # 本局统计
-        stats_group = QGroupBox("📈 本局统计")
+        # 统计面板
+        stats_group = QGroupBox("📦 本局统计")
         stats_layout = QVBoxLayout(stats_group)
 
-        # 物资进度
-        progress_label = QLabel("物资收集进度:")
-        stats_layout.addWidget(progress_label)
+        self.stats_table = QTableWidget()
+        self.stats_table.setColumnCount(2)
+        self.stats_table.setHorizontalHeaderLabels(["项目", "数值"])
+        self.stats_table.setRowCount(3)
+        self.stats_table.setItem(0, 0, QTableWidgetItem("发现物资点"))
+        self.stats_table.setItem(0, 1, QTableWidgetItem("0"))
+        self.stats_table.setItem(1, 0, QTableWidgetItem("探索进度"))
+        self.stats_table.setItem(1, 1, QTableWidgetItem("0%"))
+        self.stats_table.setItem(2, 0, QTableWidgetItem("预估价值"))
+        self.stats_table.setItem(2, 1, QTableWidgetItem("0万"))
+        self.stats_table.horizontalHeader().setStretchLastSection(True)
+        stats_layout.addWidget(self.stats_table)
 
+        # 进度条
         self.material_progress = QProgressBar()
         self.material_progress.setValue(0)
-        self.material_progress.setStyleSheet("""
-            QProgressBar {
-                border: 2px solid #3498db;
-                border-radius: 5px;
-                text-align: center;
-            }
-            QProgressBar::chunk {
-                background-color: #3498db;
-                border-radius: 3px;
-            }
-        """)
+        self.material_progress.setTextVisible(True)
         stats_layout.addWidget(self.material_progress)
-
-        # 统计表格
-        self.stats_table = QTableWidget(4, 2)
-        self.stats_table.setHorizontalHeaderLabels(["项目", "数值"])
-        self.stats_table.horizontalHeader().setStretchLastSection(True)
-        self.stats_table.setItem(0, 0, QTableWidgetItem("已识别物资"))
-        self.stats_table.setItem(0, 1, QTableWidgetItem("0"))
-        self.stats_table.setItem(1, 0, QTableWidgetItem("已探索区域"))
-        self.stats_table.setItem(1, 1, QTableWidgetItem("0%"))
-        self.stats_table.setItem(2, 0, QTableWidgetItem("预计价值"))
-        self.stats_table.setItem(2, 1, QTableWidgetItem("0万"))
-        self.stats_table.setItem(3, 0, QTableWidgetItem("搜索效率"))
-        self.stats_table.setItem(3, 1, QTableWidgetItem("N/A"))
-        stats_layout.addWidget(self.stats_table)
 
         layout.addWidget(stats_group)
 
@@ -143,18 +146,7 @@ class MainWindow(QMainWindow):
         action_layout = QHBoxLayout(action_group)
 
         self.start_btn = QPushButton("▶️ 开始监测")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 12px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2ecc71; }
-            QPushButton:pressed { background-color: #219a52; }
-        """)
+        self.start_btn.setStyleSheet(self._button_style("#27ae60"))
         self.start_btn.clicked.connect(self._toggle_monitoring)
 
         self.overlay_btn = QPushButton("👁️ 显示悬浮窗")
@@ -174,6 +166,12 @@ class MainWindow(QMainWindow):
 
         action_layout.addWidget(self.start_btn)
         action_layout.addWidget(self.overlay_btn)
+        
+        # 添加统计按钮
+        self.stats_btn = QPushButton("📊 数据统计")
+        self.stats_btn.setStyleSheet(self._button_style("#9b59b6"))
+        self.stats_btn.clicked.connect(self._show_stats)
+        action_layout.addWidget(self.stats_btn)
 
         layout.addWidget(action_group)
 
@@ -183,7 +181,6 @@ class MainWindow(QMainWindow):
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumBlockCount(100)
         self.log_text.setStyleSheet("""
             QTextEdit {
                 background-color: #2c3e50;
@@ -311,12 +308,94 @@ class MainWindow(QMainWindow):
             self.overlay_btn.setText("👁️ 显示悬浮窗")
             self.hide_overlay_signal.emit()
 
-    def _update_status(self):
-        """更新状态显示"""
-        # 可以在这里添加定期状态更新
-        pass
+    def _show_stats(self):
+        """显示统计对话框"""
+        if self.stats_dialog is None:
+            self.stats_dialog = StatsDialog(self.db, self.calculator, self)
+        self.stats_dialog.show()
+        self.stats_dialog.raise_()
+        self.stats_dialog.activateWindow()
 
-    @Slot(bool)
+    def _update_status(self):
+        """更新状态显示 - 检测游戏进程"""
+        try:
+            import psutil
+            
+            # 检测三角洲行动进程
+            game_processes = ['delta', '三角洲', 'dfclient', 'gamelauncher']
+            is_running = False
+            
+            for proc in psutil.process_iter(['name', 'exe']):
+                try:
+                    proc_name = proc.info['name'].lower() if proc.info['name'] else ''
+                    proc_exe = proc.info['exe'].lower() if proc.info['exe'] else ''
+                    
+                    # 检查进程名或路径
+                    for keyword in game_processes:
+                        if keyword in proc_name or keyword in proc_exe:
+                            is_running = True
+                            break
+                    if is_running:
+                        break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            # 只有状态变化时才更新UI
+            if hasattr(self, '_last_game_status'):
+                if is_running != self._last_game_status:
+                    self.update_game_status(is_running)
+            else:
+                self.update_game_status(is_running)
+            
+            self._last_game_status = is_running
+            
+        except ImportError:
+            # 如果没有 psutil，回退到窗口检测
+            self._check_game_by_window()
+        except Exception as e:
+            pass
+    
+    def _check_game_by_window(self):
+        """备用：通过窗口检测游戏"""
+        try:
+            import pygetwindow as gw
+            # 尝试多种可能的标题
+            titles = ['三角洲', 'Delta', 'DFClient', '三角洲行动']
+            is_running = False
+            
+            for title in titles:
+                windows = gw.getWindowsWithTitle(title)
+                if windows:
+                    is_running = True
+                    break
+            
+            if hasattr(self, '_last_game_status'):
+                if is_running != self._last_game_status:
+                    self.update_game_status(is_running)
+            else:
+                self.update_game_status(is_running)
+            
+            self._last_game_status = is_running
+            
+        except Exception:
+            pass
+
+    def _button_style(self, color="#3498db"):
+        """返回按钮样式"""
+        return f"""
+        QPushButton {{
+            background-color: {color};
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 13px;
+            font-weight: bold;
+        }}
+        QPushButton:hover {{ background-color: {color}dd; }}
+        QPushButton:pressed {{ background-color: {color}aa; }}
+        """
+
     def update_game_status(self, detected: bool):
         """更新游戏检测状态"""
         if detected:

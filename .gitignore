@@ -1,0 +1,195 @@
+# ============================================
+# Delta Helper - Git Ignore File
+# ============================================
+
+# ----------------------------------------
+# Python
+# ----------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ----------------------------------------
+# Virtual Environments
+# ----------------------------------------
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+
+# ----------------------------------------
+# IDEs and Editors
+# ----------------------------------------
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+.#*
+
+# ----------------------------------------
+# Project Specific - Delta Helper
+# ----------------------------------------
+
+# Data files (user-specific)
+data/*.db
+data/*.sqlite
+data/*.json
+!data/.gitkeep
+
+# Log files
+logs/*.log
+logs/**/*.log
+*.log
+
+# Config files (may contain sensitive data)
+config/settings.json
+config/*.json
+!config/default.json
+!config/example.json
+
+# Build outputs
+dist/
+build/
+*.spec
+
+# PyInstaller
+*.manifest
+*.spec
+build/
+dist/
+*.exe
+*.app
+*.dmg
+
+# ----------------------------------------
+# PySide6 / Qt
+# ----------------------------------------
+*.qm
+*.ts
+.pyqtconfig
+tmp/
+temp/
+
+# ----------------------------------------
+# UV / Package Management
+# ----------------------------------------
+# uv.lock should typically be committed for applications
+# Uncomment below if you don't want to commit it
+# uv.lock
+
+# ----------------------------------------
+# Testing
+# ----------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+tox/
+.nox/
+
+# ----------------------------------------
+# Type Checking
+# ----------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# ----------------------------------------
+# Documentation
+# ----------------------------------------
+docs/_build/
+
+# ----------------------------------------
+# OS Generated
+# ----------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+.directory
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+# ----------------------------------------
+# Temporary Files
+# ----------------------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.save
+*.autosave
+
+# ----------------------------------------
+# Security / Credentials
+# ----------------------------------------
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+.env.local
+.env.*.local
+credentials.json

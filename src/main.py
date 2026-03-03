@@ -27,6 +27,8 @@ from core import (
     Config,
 )
 from ui import MainWindow, PetOverlay
+from analytics import DatabaseManager, EfficiencyCalculator
+
 
 
 class DeltaHelper(QObject):
@@ -55,6 +57,18 @@ class DeltaHelper(QObject):
         self.route_optimizer: Optional[RouteOptimizer] = None
 
         # UI
+        self.main_window: Optional[MainWindow] = None
+        self.overlay: Optional[PetOverlay] = None
+
+        # 数据分析
+        self.db = DatabaseManager()
+        self.calculator = EfficiencyCalculator()
+        self._current_session_id: Optional[int] = None
+
+        # 状态
+        self._running = False
+        self._current_materials = []
+        self._player_pos = (960, 540)  # 默认屏幕中心
         self.main_window: Optional[MainWindow] = None
         self.overlay: Optional[PetOverlay] = None
 
@@ -150,6 +164,43 @@ class DeltaHelper(QObject):
                 self._current_materials = materials
                 self.materials_detected.emit(materials)
 
+                # 记录到分析系统
+                for m in materials:
+                    value = self._estimate_item_value(m.text, m.material_type)
+                    self.calculator.add_loot(m.text, value)
+                    
+                    # 记录到数据库
+                    if self._current_session_id:
+                        x, y = m.center
+                        self.db.add_loot_item(
+                            self._current_session_id,
+                            name=m.text,
+                            category=m.material_type or 'unknown',
+                            value=value,
+                            position_x=x,
+                            position_y=y,
+                            confidence=m.confidence
+                        )
+
+                # 更新UI
+                if self.main_window:
+                    self.main_window.add_log(f"识别到 {len(materials)} 个物资点")
+                    # 更新主窗口的计算器引用
+                    self.main_window.calculator = self.calculator
+
+                # 更新悬浮窗显示实时统计
+                if self.overlay:
+                    summary = self.calculator.get_live_summary()
+                    self.overlay.update_info(
+                        f"🎮 地图已开启\n{summary}\n➡️ 已规划最优路线"
+                    )
+
+                # 规划路线
+                self._plan_route()
+                logger.info(f"Detected {len(materials)} materials")
+                self._current_materials = materials
+                self.materials_detected.emit(materials)
+
                 # 更新UI
                 if self.main_window:
                     self.main_window.add_log(f"识别到 {len(materials)} 个物资点")
@@ -214,10 +265,51 @@ class DeltaHelper(QObject):
         self._running = True
         self.map_detector.start()
 
+        # 开始游戏会话记录
+        self._current_session_id = self.db.create_session()
+        self.calculator.start_session()
+        logger.info(f"Started game session: {self._current_session_id}")
+        self.log_message.emit(f"📊 开始记录本局数据 [ID: {self._current_session_id}]")
+
+        logger.info("DeltaHelper started")
+        self.log_message.emit("助手已启动")
+        """启动助手"""
+        if self._running:
+            logger.warning("Already running")
+            return
+
+        if not self.initialize():
+            logger.error("Initialization failed")
+            return
+
+        self._running = True
+        self.map_detector.start()
+
         logger.info("DeltaHelper started")
         self.log_message.emit("助手已启动")
 
     def stop(self):
+        """停止助手"""
+        self._running = False
+
+        if self.map_detector:
+            self.map_detector.stop()
+        if self.capture:
+            self.capture.stop()
+
+        # 结束游戏会话
+        if self._current_session_id:
+            stats = self.calculator.get_stats()
+            self.db.end_session(
+                self._current_session_id,
+                result='disconnect',  # 默认断线
+                total_value=stats.get('total_value', 0),
+                materials_count=stats.get('items_count', 0)
+            )
+            self._current_session_id = None
+
+        logger.info("DeltaHelper stopped")
+        self.log_message.emit("助手已停止")
         """停止助手"""
         self._running = False
 
@@ -246,6 +338,22 @@ class DeltaHelper(QObject):
         # 创建Qt应用
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)
+        
+        # 设置Ctrl+C信号处理
+        import signal
+        def signal_handler(signum, frame):
+            logger.info("Received interrupt signal, shutting down...")
+            app.quit()
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        
+        # 使用定时器允许Python处理信号
+        def handle_interrupt():
+            pass  # 定时器触发时Python会处理信号
+        
+        interrupt_timer = QTimer()
+        interrupt_timer.timeout.connect(handle_interrupt)
+        interrupt_timer.start(100)  # 每100ms检查一次信号
 
         # 创建主窗口
         self.main_window = MainWindow(self.config)
@@ -266,6 +374,37 @@ class DeltaHelper(QObject):
 
         # 运行
         return app.exec()
+
+
+    def _estimate_item_value(self, name: str, category: Optional[str]) -> int:
+        """估算物资价值"""
+        base_values = {
+            'medical': 5000,
+            'ammo': 3000,
+            'equipment': 15000,
+            'weapon': 50000,
+            'valuables': 100000,
+        }
+        return base_values.get(category, 1000)
+
+    def end_game_session(self, result: str = 'success'):
+        """手动结束游戏局"""
+        if self._current_session_id:
+            stats = self.calculator.get_stats()
+            self.db.end_session(
+                self._current_session_id,
+                result=result,
+                total_value=stats.get('total_value', 0),
+                materials_count=stats.get('items_count', 0)
+            )
+
+            # 显示战后报告
+            overall = self.db.get_overall_stats(days=1)
+            avg_value = overall.get('avg_value', 0)
+            self.log_message.emit(f"📊 本局结束！今日平均: {avg_value:,.0f}/局")
+
+            self._current_session_id = None
+            self.calculator.start_session()  # 开始新会话
 
 
 def main():
